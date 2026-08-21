@@ -1,8 +1,8 @@
 FROM python:3.12-slim
 
-# Install system dependencies: ffmpeg, curl, unzip, ca-certificates, nodejs
+# Install high-speed system dependencies: ffmpeg, aria2 (multi-thread accelerator), curl, unzip, nodejs
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates nodejs npm && \
+    apt-get install -y --no-install-recommends ffmpeg aria2 curl unzip ca-certificates nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
 # Set up non-root user (UID 1000)
@@ -24,4 +24,4 @@ COPY --chown=user:user . .
 ENV PORT=7860
 EXPOSE 7860
 
-CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "2", "--timeout", "300", "app:app"]
+CMD gunicorn --bind 0.0.0.0:${PORT:-7860} --workers 2 --timeout 300 app:app
