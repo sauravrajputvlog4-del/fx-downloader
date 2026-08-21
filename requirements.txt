@@ -1,0 +1,6 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+yt-dlp>=2026.8.19
+static-ffmpeg>=2.5
+imageio-ffmpeg>=0.5.1
+gunicorn>=21.2.0
