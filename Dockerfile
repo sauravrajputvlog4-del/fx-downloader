@@ -1,15 +1,18 @@
 FROM python:3.12-slim
 
-# Install ffmpeg and curl
+# Install system dependencies: ffmpeg, curl, ca-certificates, nodejs
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates && \
+    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up user for Hugging Face Spaces (UID 1000)
+# Set up non-root user (UID 1000)
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+    PATH=/home/user/.local/bin:/home/user/.deno/bin:$PATH
+
+# Install Deno for yt-dlp JavaScript challenge solver & PO token generator
+RUN curl -fsSL https://deno.land/install.sh | sh
 
 WORKDIR /home/user/app
 
