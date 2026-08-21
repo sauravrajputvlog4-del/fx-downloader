@@ -1,8 +1,8 @@
 FROM python:3.12-slim
 
-# Install system dependencies: ffmpeg, curl, ca-certificates, nodejs
+# Install system dependencies: ffmpeg, curl, unzip, ca-certificates, nodejs
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates nodejs npm && \
+    apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
 # Set up non-root user (UID 1000)
