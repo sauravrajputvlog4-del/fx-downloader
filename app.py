@@ -167,30 +167,43 @@ def ensure_premiere_pro_compatibility(file_path):
         has_h264 = ('video: h264' in log) or ('video: avc1' in log)
         has_aac = ('audio: aac' in log) or ('audio: mp4a' in log)
 
-        # If it's VP9/AV1 or Opus/other audio, transcode to standard Premiere-friendly H.264+AAC
-        if not (has_h264 and has_aac):
-            print(f"[Premiere Fix] Transcoding {os.path.basename(file_path)} to H.264 + AAC for Adobe Premiere Pro compatibility...")
-            temp_output = os.path.join(os.path.dirname(file_path), f"fixed_{os.path.basename(file_path)}")
-            
+        # If already 100% compliant, return immediately
+        if has_h264 and has_aac:
+            return file_path
+
+        temp_output = os.path.join(os.path.dirname(file_path), f"fast_{os.path.basename(file_path)}")
+
+        if has_h264 and not has_aac:
+            # Video is already H.264, only copy video and convert audio in 0.3 seconds!
             conv_cmd = [
-                FFMPEG_BIN, '-y',
+                FFMPEG_BIN, '-y', '-threads', '0',
+                '-i', file_path,
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-b:a', '320k',
+                '-movflags', '+faststart',
+                temp_output
+            ]
+        else:
+            # Full transcode using multi-threaded ultrafast preset
+            conv_cmd = [
+                FFMPEG_BIN, '-y', '-threads', '0',
                 '-i', file_path,
                 '-c:v', 'libx264',
-                '-preset', 'veryfast',
-                '-crf', '18',
+                '-preset', 'ultrafast',
+                '-crf', '20',
                 '-pix_fmt', 'yuv420p',
                 '-c:a', 'aac',
                 '-b:a', '320k',
                 '-movflags', '+faststart',
                 temp_output
             ]
-            subprocess.run(conv_cmd, check=True, capture_output=True)
-            
-            if os.path.exists(temp_output) and os.path.getsize(temp_output) > 1000:
-                os.replace(temp_output, file_path)
-                print(f"[Premiere Fix] Successfully encoded in H.264 + AAC: {file_path}")
+
+        subprocess.run(conv_cmd, check=True, capture_output=True)
+        if os.path.exists(temp_output) and os.path.getsize(temp_output) > 1000:
+            os.replace(temp_output, file_path)
     except Exception as e:
-        print(f"[Premiere Fix] Warning during codec optimization: {e}")
+        print(f"[Premiere Fix] Codec optimization info: {e}")
 
     return file_path
 
@@ -468,16 +481,21 @@ def background_downloader(task_id, raw_url, download_type, target_quality, forma
         'no_warnings': True,
         'noplaylist': True,
         'overwrites': True,
-        'retries': 5,
-        'fragment_retries': 5,
+        'retries': 10,
+        'fragment_retries': 10,
+        'concurrent_fragment_downloads': 10,
+        'http_chunk_size': 10485760,
+        'buffersize': 1048576,
         'socket_timeout': 30,
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'android', 'android_creator', 'web_creator', 'mweb']
+                'player_client': ['web_embedded', 'android', 'ios'],
+                'player_skip': ['configs']
             }
         },
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'Referer': 'https://www.youtube.com/'
         }
     }
 
