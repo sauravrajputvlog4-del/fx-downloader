@@ -307,102 +307,102 @@ def get_video_info():
         if not info:
             return jsonify({'success': False, 'error': 'Could not extract video information.'}), 400
 
-            if 'entries' in info and info['entries']:
-                info = [e for e in info['entries'] if e][0]
+        if 'entries' in info and info['entries']:
+            info = [e for e in info['entries'] if e][0]
 
-            title = info.get('title', 'Unknown Video')
-            thumbnail = info.get('thumbnail')
-            duration = info.get('duration')
-            uploader = info.get('uploader') or info.get('channel') or info.get('creator') or 'Unknown Creator'
-            view_count = info.get('view_count')
-            webpage_url = info.get('webpage_url', url)
-            extractor = info.get('extractor_key', 'Universal')
+        title = info.get('title', 'Unknown Video')
+        thumbnail = info.get('thumbnail')
+        duration = info.get('duration')
+        uploader = info.get('uploader') or info.get('channel') or info.get('creator') or 'Unknown Creator'
+        view_count = info.get('view_count')
+        webpage_url = info.get('webpage_url', url)
+        extractor = info.get('extractor_key', 'Universal')
 
-            # Parse formats
-            raw_formats = info.get('formats', [])
-            video_resolutions = {}
+        # Parse formats
+        raw_formats = info.get('formats', [])
+        video_resolutions = {}
 
-            target_heights = [2160, 1440, 1080, 720, 480, 360]
-            resolution_labels = {
-                2160: '4K Ultra HD (2160p)',
-                1440: '2K Quad HD (1440p)',
-                1080: 'Full HD (1080p HD)',
-                720: 'HD (720p)',
-                480: 'SD (480p)',
-                360: 'SD (360p)'
-            }
+        target_heights = [2160, 1440, 1080, 720, 480, 360]
+        resolution_labels = {
+            2160: '4K Ultra HD (2160p)',
+            1440: '2K Quad HD (1440p)',
+            1080: 'Full HD (1080p HD)',
+            720: 'HD (720p)',
+            480: 'SD (480p)',
+            360: 'SD (360p)'
+        }
 
-            for f in raw_formats:
-                height = f.get('height')
-                filesize = f.get('filesize') or f.get('filesize_approx')
-                fps = f.get('fps')
-                vcodec = f.get('vcodec')
-                acodec = f.get('acodec')
-                ext = f.get('ext', 'mp4')
+        for f in raw_formats:
+            height = f.get('height')
+            filesize = f.get('filesize') or f.get('filesize_approx')
+            fps = f.get('fps')
+            vcodec = f.get('vcodec')
+            acodec = f.get('acodec')
+            ext = f.get('ext', 'mp4')
 
-                if height and height > 0:
-                    matched_h = None
-                    for th in target_heights:
-                        if height >= th - 30 and height <= th + 30:
-                            matched_h = th
-                            break
-                    if not matched_h:
-                        matched_h = height
+            if height and height > 0:
+                matched_h = None
+                for th in target_heights:
+                    if height >= th - 30 and height <= th + 30:
+                        matched_h = th
+                        break
+                if not matched_h:
+                    matched_h = height
 
-                    if matched_h not in video_resolutions or (filesize and filesize > (video_resolutions[matched_h].get('raw_size') or 0)):
-                        label = resolution_labels.get(matched_h, f"{matched_h}p")
-                        if fps and fps >= 50:
-                            label += f" {int(fps)}fps"
+                if matched_h not in video_resolutions or (filesize and filesize > (video_resolutions[matched_h].get('raw_size') or 0)):
+                    label = resolution_labels.get(matched_h, f"{matched_h}p")
+                    if fps and fps >= 50:
+                        label += f" {int(fps)}fps"
 
-                        video_resolutions[matched_h] = {
-                            'height': matched_h,
-                            'target_height': str(matched_h),
-                            'format_id': f.get('format_id'),
-                            'label': label,
-                            'quality_tag': '4K UHD' if matched_h >= 2160 else ('2K QHD' if matched_h >= 1440 else ('1080p FHD' if matched_h >= 1080 else ('720p HD' if matched_h >= 720 else f'{matched_h}p'))),
-                            'ext': 'mp4',
-                            'fps': fps,
-                            'filesize_str': format_bytes(filesize) if filesize else 'Best Quality',
-                            'raw_size': filesize or 0,
-                            'has_audio': acodec != 'none' and bool(acodec)
-                        }
+                    video_resolutions[matched_h] = {
+                        'height': matched_h,
+                        'target_height': str(matched_h),
+                        'format_id': f.get('format_id'),
+                        'label': label,
+                        'quality_tag': '4K UHD' if matched_h >= 2160 else ('2K QHD' if matched_h >= 1440 else ('1080p FHD' if matched_h >= 1080 else ('720p HD' if matched_h >= 720 else f'{matched_h}p'))),
+                        'ext': 'mp4',
+                        'fps': fps,
+                        'filesize_str': format_bytes(filesize) if filesize else 'Best Quality',
+                        'raw_size': filesize or 0,
+                        'has_audio': acodec != 'none' and bool(acodec)
+                    }
 
-            sorted_video_options = sorted(video_resolutions.values(), key=lambda x: x['height'], reverse=True)
+        sorted_video_options = sorted(video_resolutions.values(), key=lambda x: x['height'], reverse=True)
 
-            sorted_audio_options = [
-                {'format_id': 'bestaudio_mp3_320', 'label': 'MP3 Studio Master (320 kbps)', 'ext': 'mp3', 'quality': '320kbps', 'tag': '320 kbps'},
-                {'format_id': 'bestaudio_mp3_192', 'label': 'MP3 Standard Quality (192 kbps)', 'ext': 'mp3', 'quality': '192kbps', 'tag': '192 kbps'},
-                {'format_id': 'bestaudio_m4a', 'label': 'M4A / AAC Lossless Audio', 'ext': 'm4a', 'quality': 'Original', 'tag': 'AAC'}
-            ]
+        sorted_audio_options = [
+            {'format_id': 'bestaudio_mp3_320', 'label': 'MP3 Studio Master (320 kbps)', 'ext': 'mp3', 'quality': '320kbps', 'tag': '320 kbps'},
+            {'format_id': 'bestaudio_mp3_192', 'label': 'MP3 Standard Quality (192 kbps)', 'ext': 'mp3', 'quality': '192kbps', 'tag': '192 kbps'},
+            {'format_id': 'bestaudio_m4a', 'label': 'M4A / AAC Lossless Audio', 'ext': 'm4a', 'quality': 'Original', 'tag': 'AAC'}
+        ]
 
-            if not sorted_video_options:
-                sorted_video_options.append({
-                    'height': 1080,
-                    'target_height': 'best',
-                    'format_id': 'bestvideo+bestaudio/best',
-                    'label': 'Highest Available Resolution (MP4)',
-                    'quality_tag': 'Max Quality',
-                    'ext': 'mp4',
-                    'filesize_str': 'Auto / Best',
-                    'raw_size': 0,
-                    'has_audio': True
-                })
+        if not sorted_video_options:
+            sorted_video_options.append({
+                'height': 1080,
+                'target_height': 'best',
+                'format_id': 'bestvideo+bestaudio/best',
+                'label': 'Highest Available Resolution (MP4)',
+                'quality_tag': 'Max Quality',
+                'ext': 'mp4',
+                'filesize_str': 'Auto / Best',
+                'raw_size': 0,
+                'has_audio': True
+            })
 
-            response_payload = {
-                'success': True,
-                'title': title,
-                'thumbnail': thumbnail,
-                'duration': duration,
-                'duration_str': format_duration(duration),
-                'uploader': uploader,
-                'view_count': f"{view_count:,}" if view_count else None,
-                'url': webpage_url,
-                'platform': extractor,
-                'video_options': sorted_video_options,
-                'audio_options': sorted_audio_options
-            }
+        response_payload = {
+            'success': True,
+            'title': title,
+            'thumbnail': thumbnail,
+            'duration': duration,
+            'duration_str': format_duration(duration),
+            'uploader': uploader,
+            'view_count': f"{view_count:,}" if view_count else None,
+            'url': webpage_url,
+            'platform': extractor,
+            'video_options': sorted_video_options,
+            'audio_options': sorted_audio_options
+        }
 
-            return jsonify(response_payload)
+        return jsonify(response_payload)
 
     except Exception as e:
         return jsonify({'success': False, 'error': f"Failed to fetch video: {str(e)}"}), 500
