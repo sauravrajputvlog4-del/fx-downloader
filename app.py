@@ -255,6 +255,31 @@ def open_folder():
         return jsonify({'success': False, 'error': str(e)}), 500
     return jsonify({'success': False, 'error': 'Folder not found'}), 404
 
+def extract_with_fallbacks(base_opts, target_url, download=False):
+    """Tries multiple client profiles to bypass YouTube cloud datacenter bot blocks."""
+    strategies = [
+        ['ios', 'android', 'mweb'],
+        ['android_creator', 'ios'],
+        ['tv_embedded', 'web_creator'],
+        ['web', 'default']
+    ]
+    last_exception = None
+    for clients in strategies:
+        opts = dict(base_opts)
+        opts['extractor_args'] = {'youtube': {'player_client': clients}}
+        opts['http_headers'] = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+        }
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                res = ydl.extract_info(target_url, download=download)
+                if res:
+                    return res
+        except Exception as e:
+            last_exception = e
+            continue
+    raise last_exception or Exception("Could not extract media with any client strategy.")
+
 @app.route('/api/info', methods=['POST'])
 def get_video_info():
     data = request.get_json() or {}
@@ -272,23 +297,14 @@ def get_video_info():
         'noplaylist': True,
         'extract_flat': False,
         'socket_timeout': 25,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['ios', 'android', 'android_creator', 'web_creator', 'mweb']
-            }
-        },
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
-        }
     }
     if FFMPEG_BIN:
         ydl_opts['ffmpeg_location'] = FFMPEG_BIN
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if not info:
-                return jsonify({'success': False, 'error': 'Could not extract video information.'}), 400
+        info = extract_with_fallbacks(ydl_opts, url, download=False)
+        if not info:
+            return jsonify({'success': False, 'error': 'Could not extract video information.'}), 400
 
             if 'entries' in info and info['entries']:
                 info = [e for e in info['entries'] if e][0]
@@ -519,10 +535,9 @@ def background_downloader(task_id, raw_url, download_type, target_quality, forma
         tasks[task_id]['status'] = 'downloading'
         tasks[task_id]['percent'] = 5
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url, download=True)
-            if 'entries' in info_dict and info_dict['entries']:
-                info_dict = [e for e in info_dict['entries'] if e][0]
+        info_dict = extract_with_fallbacks(ydl_opts, url, download=True)
+        if 'entries' in info_dict and info_dict['entries']:
+            info_dict = [e for e in info_dict['entries'] if e][0]
 
             candidates = [
                 f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f"dl_{file_uuid}.*"))
