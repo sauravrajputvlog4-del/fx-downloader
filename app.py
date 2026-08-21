@@ -256,19 +256,20 @@ def open_folder():
     return jsonify({'success': False, 'error': 'Folder not found'}), 404
 
 def extract_with_fallbacks(base_opts, target_url, download=False):
-    """Tries multiple client profiles to bypass YouTube cloud datacenter bot blocks."""
+    """Tries web_embedded and mobile profiles to bypass YouTube cloud datacenter bot blocks."""
     strategies = [
-        ['ios', 'android', 'mweb'],
-        ['android_creator', 'ios'],
-        ['tv_embedded', 'web_creator'],
-        ['web', 'default']
+        ['web_embedded', 'android', 'ios'],
+        ['web_embedded'],
+        ['android', 'ios'],
+        ['default']
     ]
     last_exception = None
     for clients in strategies:
         opts = dict(base_opts)
-        opts['extractor_args'] = {'youtube': {'player_client': clients}}
+        opts['extractor_args'] = {'youtube': {'player_client': clients, 'player_skip': ['configs']}}
         opts['http_headers'] = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'Referer': 'https://www.youtube.com/'
         }
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
