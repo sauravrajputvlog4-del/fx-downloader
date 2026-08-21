@@ -271,7 +271,15 @@ def get_video_info():
         'no_warnings': True,
         'noplaylist': True,
         'extract_flat': False,
-        'socket_timeout': 20,
+        'socket_timeout': 25,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'android', 'android_creator', 'web_creator', 'mweb']
+            }
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+        }
     }
     if FFMPEG_BIN:
         ydl_opts['ffmpeg_location'] = FFMPEG_BIN
@@ -446,6 +454,14 @@ def background_downloader(task_id, raw_url, download_type, target_quality, forma
         'retries': 5,
         'fragment_retries': 5,
         'socket_timeout': 30,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'android', 'android_creator', 'web_creator', 'mweb']
+            }
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+        }
     }
 
     if FFMPEG_BIN:
