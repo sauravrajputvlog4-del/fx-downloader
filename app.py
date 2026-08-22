@@ -269,17 +269,19 @@ def open_folder():
     return jsonify({'success': False, 'error': 'Folder not found'}), 404
 
 def extract_with_fallbacks(base_opts, target_url, download=False):
-    """Tries web_embedded and mobile profiles to bypass YouTube cloud datacenter bot blocks."""
+    """Extracts media with highest resolution options first, falling back if needed."""
     strategies = [
-        ['web_embedded', 'android', 'ios'],
-        ['web_embedded'],
+        None,  # Standard full format extractor (4K, 2K, 1080p, 720p, 480p)
+        ['android', 'web', 'ios'],
         ['android', 'ios'],
+        ['web_embedded', 'android'],
         ['default']
     ]
     last_exception = None
     for clients in strategies:
         opts = dict(base_opts)
-        opts['extractor_args'] = {'youtube': {'player_client': clients, 'player_skip': ['configs']}}
+        if clients:
+            opts['extractor_args'] = {'youtube': {'player_client': clients, 'player_skip': ['configs']}}
         opts['http_headers'] = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
             'Referer': 'https://www.youtube.com/'
@@ -346,39 +348,45 @@ def get_video_info():
         }
 
         for f in raw_formats:
+            fid = str(f.get('format_id') or '')
+            vcodec = str(f.get('vcodec') or 'none')
             height = f.get('height')
             filesize = f.get('filesize') or f.get('filesize_approx')
-            fps = f.get('fps')
-            vcodec = f.get('vcodec')
+            fps = f.get('fps') or 0
             acodec = f.get('acodec')
             ext = f.get('ext', 'mp4')
 
-            if height and height > 0:
-                matched_h = None
-                for th in target_heights:
-                    if height >= th - 30 and height <= th + 30:
-                        matched_h = th
-                        break
-                if not matched_h:
-                    matched_h = height
+            # Filter out storyboards, thumbnails, and non-video streams
+            if vcodec == 'none' or fid.startswith('sb') or (fps and fps < 1):
+                continue
+            if not height or height < 144:
+                continue
 
-                if matched_h not in video_resolutions or (filesize and filesize > (video_resolutions[matched_h].get('raw_size') or 0)):
-                    label = resolution_labels.get(matched_h, f"{matched_h}p")
-                    if fps and fps >= 50:
-                        label += f" {int(fps)}fps"
+            matched_h = None
+            for th in target_heights:
+                if height >= th - 30 and height <= th + 30:
+                    matched_h = th
+                    break
+            if not matched_h:
+                matched_h = height
 
-                    video_resolutions[matched_h] = {
-                        'height': matched_h,
-                        'target_height': str(matched_h),
-                        'format_id': f.get('format_id'),
-                        'label': label,
-                        'quality_tag': '4K UHD' if matched_h >= 2160 else ('2K QHD' if matched_h >= 1440 else ('1080p FHD' if matched_h >= 1080 else ('720p HD' if matched_h >= 720 else f'{matched_h}p'))),
-                        'ext': 'mp4',
-                        'fps': fps,
-                        'filesize_str': format_bytes(filesize) if filesize else 'Best Quality',
-                        'raw_size': filesize or 0,
-                        'has_audio': acodec != 'none' and bool(acodec)
-                    }
+            if matched_h not in video_resolutions or (filesize and filesize > (video_resolutions[matched_h].get('raw_size') or 0)):
+                label = resolution_labels.get(matched_h, f"{matched_h}p")
+                if fps and fps >= 50:
+                    label += f" {int(fps)}fps"
+
+                video_resolutions[matched_h] = {
+                    'height': matched_h,
+                    'target_height': str(matched_h),
+                    'format_id': fid,
+                    'label': label,
+                    'quality_tag': '4K UHD' if matched_h >= 2160 else ('2K QHD' if matched_h >= 1440 else ('1080p FHD' if matched_h >= 1080 else ('720p HD' if matched_h >= 720 else f'{matched_h}p'))),
+                    'ext': 'mp4',
+                    'fps': fps,
+                    'filesize_str': format_bytes(filesize) if filesize else 'Best Quality',
+                    'raw_size': filesize or 0,
+                    'has_audio': acodec != 'none' and bool(acodec)
+                }
 
         sorted_video_options = sorted(video_resolutions.values(), key=lambda x: x['height'], reverse=True)
 
@@ -531,22 +539,22 @@ def background_downloader(task_id, raw_url, download_type, target_quality, forma
         if clean_q.isdigit():
             h = int(clean_q)
             ydl_opts.update({
-                'format': f'bestvideo[height<={h}][vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={h}]+bestaudio/best[height<={h}]/best',
+                'format': f'bestvideo[height<={h}]+bestaudio/bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]/best[height<={h}]/best',
                 'merge_output_format': 'mp4',
             })
         elif '4k' in clean_q or '2160' in clean_q:
             ydl_opts.update({
-                'format': 'bestvideo[height<=2160][vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=2160]+bestaudio/best',
+                'format': 'bestvideo[height<=2160]+bestaudio/bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4'
             })
         elif '2k' in clean_q or '1440' in clean_q:
             ydl_opts.update({
-                'format': 'bestvideo[height<=1440][vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[height<=1440][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1440]+bestaudio/best',
+                'format': 'bestvideo[height<=1440]+bestaudio/bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4'
             })
         else:
             ydl_opts.update({
-                'format': 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+                'format': 'bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4'
             })
 
